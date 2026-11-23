@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "cap:sync": "npm run build && cap sync android",
-    "android:open": "cap open android"
+    "android:open": "cap open android",
+    "setup:google": "bash scripts/setup-google.sh"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",

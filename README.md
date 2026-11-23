@@ -74,7 +74,22 @@ Without `VITE_GOOGLE_CLIENT_ID`, the app still works fully on the device. Only G
 
 ## Google Cloud setup (sign-in + Drive)
 
-Do all of this in **one** Google Cloud project:
+**Quick way:** run the interactive setup script:
+
+```bash
+npm run setup:google      # or: bash scripts/setup-google.sh [--project my-id] [--skip-gcloud] [--skip-github]
+```
+
+The script does these steps for you:
+
+- creates the project and enables the Drive API (with the [gcloud CLI](https://cloud.google.com/sdk/docs/install))
+- writes `.env.local`
+- prints your SHA-1 fingerprints and can create the upload keystore (at `~/.kovault/kovault-upload.jks`)
+- can save the client ID and keystore to GitHub Actions (with `gh`)
+
+Google has no API for the consent screen or for creating OAuth clients, so for those steps the script opens the right console page and waits for you. It is safe to re-run.
+
+The manual steps, if you prefer to click through yourself. Do all of this in **one** Google Cloud project:
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com/) and create a project.
 2. In **APIs & Services → Library**, enable the **Google Drive API**.
