@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx vite build
+
+  android:
+    runs-on: ubuntu-latest
+    needs: web
+    env:
+      VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      KOVAULT_VERSION_CODE: ${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.KOVAULT_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npx vite build
+      - run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Decode upload keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KOVAULT_KEYSTORE_BASE64 }}
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "path=$RUNNER_TEMP/upload.jks" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release bundle (AAB) for Google Play
+        if: steps.keystore.outputs.path != ''
+        working-directory: android
+        env:
+          KOVAULT_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          KOVAULT_KEYSTORE_PASSWORD: ${{ secrets.KOVAULT_KEYSTORE_PASSWORD }}
+          KOVAULT_KEY_ALIAS: ${{ secrets.KOVAULT_KEY_ALIAS }}
+          KOVAULT_KEY_PASSWORD: ${{ secrets.KOVAULT_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon bundleRelease
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kovault-android
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: warn
